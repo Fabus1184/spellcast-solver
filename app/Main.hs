@@ -69,15 +69,18 @@ points =
         , ('Z', 8)
         ]
 
+-- | The reward for a word
 reward :: BS.ByteString -> Int
 reward = sum . map (points HM.!) . BS.unpack
 
 type GridByIndex = HM.HashMap Int Char
 type GridByChar = HM.HashMap Char [Int]
 
+-- | Get the word for a given path
 f :: [Int] -> GridByIndex -> [Char]
 f path gridByIndex = map (gridByIndex HM.!) path
 
+-- | Map words to paths
 mapWords :: [Int] -> T.Trie () -> (GridByIndex, GridByChar) -> T.Trie [Int]
 mapWords [] trie (gridByIndex, gridByChar) =
     foldl1 T.unionL
