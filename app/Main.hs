@@ -1,22 +1,30 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
 module Main (main) where
 
+import Control.Monad (forM_)
 import Criterion.Measurement (getTime, initializeTime)
 import Data.Char (toUpper)
 import Data.Ix (inRange)
-import Data.List.Extra (chunksOf, sortOn)
-import Data.Tuple.Extra (both, thd3)
+import Data.List.Extra (foldl', sortOn)
+import Data.Tuple.Extra (both, snd3, thd3)
 import Formatting (fixed, formatToString, int, right, shown, string, (%), (%.))
+import String.ANSI (bold, brightBlue, brightGreen, red, yellow)
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Trie as T
 
--- | Print a 5x5 grid
-printGrid :: [Char] -> IO ()
-printGrid = mapM_ (putStrLn . unwords . map (pure . toUpper)) . chunksOf 5
+-- | Print a 5x5 grid with the given path highlighted
+printGrid :: [Int] -> GridByIndex -> IO ()
+printGrid path g = do
+    forM_ [0 .. 24] $ \i -> do
+        if i `elem` path
+            then putStr . brightGreen . bold $ [HM.lookupDefault ' ' i g]
+            else putStr [HM.lookupDefault ' ' i g]
+        putStr $ if i `mod` 5 == 4 then "\n" else " "
 
 -- | Get the neighbours of a given row and col in a 5x5 grid
 neighbours' :: (Int, Int) -> [(Int, Int)]
@@ -82,24 +90,22 @@ f path gridByIndex = map (gridByIndex HM.!) path
 
 -- | Map words to paths
 mapWords :: [Int] -> T.Trie () -> (GridByIndex, GridByChar) -> T.Trie [Int]
-mapWords [] trie (gridByIndex, gridByChar) =
-    foldl1 T.unionL
-        . map (\i -> mapWords [i] trie (gridByIndex, gridByChar))
-        $ [0 .. 24]
+mapWords [] trie (gridByIndex, gridByChar) = do
+    let !rs = map (\i -> mapWords [i] trie (gridByIndex, gridByChar)) [0 .. 24]
+     in foldl' T.unionL T.empty rs
 mapWords path trie (gridByIndex, gridByChar) =
     let xs = filter (`notElem` path) (neighbours (last path))
         xs' = map (\x -> path ++ [x]) xs
         xs'' = map (\x -> (x, T.submap (BS.pack $ map (gridByIndex HM.!) x) trie)) xs'
         xs''' = map fst $ filter (not . T.null . snd) xs''
-     in foldl T.unionL T.empty
+        rs = map (\x -> mapWords x (T.submap (BS.pack $ map (gridByIndex HM.!) x) trie) (gridByIndex, gridByChar)) xs'''
+     in foldl' T.unionL T.empty
             . (:) (T.fromList $ filter ((`T.member` trie) . fst) [(BS.pack $ f path gridByIndex, path)])
-            . map (\x -> mapWords x (T.submap (BS.pack $ map (gridByIndex HM.!) x) trie) (gridByIndex, gridByChar))
-            $ xs'''
+            $ rs
 
 main :: IO ()
 main = do
     initializeTime
-    t1 <- getTime
 
     trie <- T.fromList . map (,()) . BS.lines . BS.map toUpper <$> BS.readFile "words.txt"
     let grid =
@@ -112,21 +118,34 @@ main = do
                 ]
     let gridByIndex = HM.fromList $ zip [0 ..] grid :: HM.HashMap Int Char
     let gridByChar = HM.fromList $ map (\c -> (c, filter (\i -> HM.lookup i gridByIndex == Just c) [0 .. 24])) ['A' .. 'Z']
+
+    t1 <- getTime
+    let !rs =
+            sortOn thd3
+                . map (\(w, p) -> (w, p, reward w))
+                . T.toList
+                $ mapWords [] trie (gridByIndex, gridByChar)
     mapM_
         ( \(w, p, r) ->
-            putStrLn $
-                formatToString
-                    ((right 12 ' ' %. string) % (right 5 ' ' %. int) % shown)
+            putStrLn
+                . (if (w, p, r) == last rs then bold else id)
+                . ( case r `div` 10 of
+                        0 -> red
+                        1 -> yellow
+                        2 -> brightGreen
+                        _ -> id
+                  )
+                $ formatToString
+                    ((right 25 ' ' %. string) % (right 5 ' ' %. int) % shown)
                     (BS.unpack w)
                     r
                     p
         )
-        . sortOn thd3
-        . map (\(w, p) -> (w, p, reward w))
-        . T.toList
-        $ mapWords [] trie (gridByIndex, gridByChar)
+        rs
 
-    printGrid grid
+    putStrLn ""
+    printGrid (snd3 $ last rs) gridByIndex
+    putStrLn ""
 
     t2 <- getTime
-    putStrLn $ formatToString ("took " % fixed 3 % "s") (t2 - t1)
+    putStrLn $ brightBlue $ formatToString ("took " % fixed 3 % "s") (t2 - t1)

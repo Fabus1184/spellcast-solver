@@ -27,14 +27,17 @@ executable spellcast-solver
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:    base ^>=4.16.4.0
-                    , extra
-                    , unordered-containers
+                    , async
                     , bytestring
                     , bytestring-trie
-                    , async
                     , criterion-measurement
+                    , extra
                     , formatting
                     , search-algorithms
+                    , text-ansi
+                    , unordered-containers
     hs-source-dirs:   app
     default-language: Haskell2010
-    ghc-options: -O2 -optc-Ofast
+    ghc-options: -Wall -Wextra -threaded -rtsopts -with-rtsopts=-N
+                 -O2 -optc-Ofast -optc-march=native -optc-mtune=native
+                 -- -fprof-auto -prof -fprof-cafs -fprof-auto-top
