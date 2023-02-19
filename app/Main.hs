@@ -67,7 +67,57 @@ points =
         , ('X', 7)
         , ('Y', 4)
         , ('Z', 8)
+        [ ('A', 1)
+        , ('B', 4)
+        , ('C', 5)
+        , ('D', 3)
+        , ('E', 1)
+        , ('F', 5)
+        , ('G', 3)
+        , ('H', 4)
+        , ('I', 1)
+        , ('J', 7)
+        , ('K', 6)
+        , ('L', 3)
+        , ('M', 4)
+        , ('N', 2)
+        , ('O', 1)
+        , ('Q', 8)
+        , ('P', 4)
+        , ('R', 2)
+        , ('S', 2)
+        , ('T', 2)
+        , ('U', 4)
+        , ('V', 5)
+        , ('W', 5)
+        , ('X', 7)
+        , ('Y', 4)
+        , ('Z', 8)
         ]
+
+reward :: BS.ByteString -> Int
+reward = sum . map (points HM.!) . BS.unpack
+
+type GridByIndex = HM.HashMap Int Char
+type GridByChar = HM.HashMap Char [Int]
+
+f :: [Int] -> GridByIndex -> [Char]
+f path gridByIndex = map (gridByIndex HM.!) path
+
+mapWords :: [Int] -> T.Trie () -> (GridByIndex, GridByChar) -> T.Trie [Int]
+mapWords [] trie (gridByIndex, gridByChar) =
+    foldl1 T.unionL
+        . map (\i -> mapWords [i] trie (gridByIndex, gridByChar))
+        $ [0 .. 24]
+mapWords path trie (gridByIndex, gridByChar) =
+    let xs = filter (`notElem` path) (neighbours (last path))
+        xs' = map (\x -> path ++ [x]) xs
+        xs'' = map (\x -> (x, T.submap (BS.pack $ map (gridByIndex HM.!) x) trie)) xs'
+        xs''' = map fst $ filter (not . T.null . snd) xs''
+     in foldl T.unionL T.empty
+            . (:) (T.fromList $ filter ((`T.member` trie) . fst) [(BS.pack $ f path gridByIndex, path)])
+            . map (\x -> mapWords x (T.submap (BS.pack $ map (gridByIndex HM.!) x) trie) (gridByIndex, gridByChar))
+            $ xs'''
 
 reward :: BS.ByteString -> Int
 reward = sum . map (points HM.!) . BS.unpack
