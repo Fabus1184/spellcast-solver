@@ -110,11 +110,11 @@ main = do
     trie <- T.fromList . map (,()) . BS.lines . BS.map toUpper <$> BS.readFile "words.txt"
     let grid =
             concat
-                [ "AMTVL"
-                , "ROLAD"
-                , "IINIE"
-                , "NIPGU"
-                , "KHUSO"
+                [ "SSUTD"
+                , "ATOPA"
+                , "HIAPI"
+                , "TOKNT"
+                , "OSCHW"
                 ]
     let gridByIndex = HM.fromList $ zip [0 ..] grid :: HM.HashMap Int Char
     let gridByChar = HM.fromList $ map (\c -> (c, filter (\i -> HM.lookup i gridByIndex == Just c) [0 .. 24])) ['A' .. 'Z']
