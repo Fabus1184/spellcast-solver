@@ -4,6 +4,8 @@ solver for the discord game "SpellCast"
 
 ![image](https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fuser-images.githubusercontent.com%2F44306495%2F198855515-21e4430f-d630-4a1a-ae94-9263e57929b1.png&f=1&nofb=1&ipt=3cdf1a82ac0c660de52dcecf4965932d9ae4ce1bc5f9fb7f462601a119cb6748&ipo=images)
 
+> using wordlists from [https://www.keithv.com/software/wlist/](https://www.keithv.com/software/wlist/), [https://github.com/dwyl/english-words](https://github.com/dwyl/english-words)
+
 ## Example:
 ```
 ...
@@ -20,10 +22,12 @@ MORINGUID   21   [1,6,5,11,12,18,19,13,9]
 PINKINGS    21   [17,11,15,20,16,12,18,23]
 SPHINGIDAE  22   [23,17,21,16,12,18,13,9,8,14]
 MORINGUIDAE 23   [1,6,5,11,12,18,19,13,9,8,14]
+
 A M T V L
 R O L A D
 I I N I E
 N I P G U
 K H U S O
+
 took 0.218s
 ```

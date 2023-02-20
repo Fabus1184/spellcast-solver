@@ -16,6 +16,7 @@ import String.ANSI (bold, brightBlue, brightGreen, red, yellow)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Trie as T
+import System.Environment (getArgs)
 
 -- | Print a 5x5 grid with the given path highlighted
 printGrid :: [Int] -> GridByIndex -> IO ()
@@ -94,21 +95,33 @@ mapWords [] trie (gridByIndex, gridByChar) = do
     let !rs = map (\i -> mapWords [i] trie (gridByIndex, gridByChar)) [0 .. 24]
      in foldl' T.unionL T.empty rs
 mapWords path trie (gridByIndex, gridByChar) =
-    let xs = filter (`notElem` path) (neighbours (last path))
-        xs' = map (\x -> path ++ [x]) xs
-        xs'' = map (\x -> (x, T.submap (BS.pack $ map (gridByIndex HM.!) x) trie)) xs'
-        xs''' = map fst $ filter (not . T.null . snd) xs''
-        rs = map (\x -> mapWords x (T.submap (BS.pack $ map (gridByIndex HM.!) x) trie) (gridByIndex, gridByChar)) xs'''
-     in foldl' T.unionL T.empty
-            . (:) (T.fromList $ filter ((`T.member` trie) . fst) [(BS.pack $ f path gridByIndex, path)])
-            $ rs
+    foldl' T.unionL T.empty
+        . (:) (T.fromList $ filter ((`T.member` trie) . fst) [(BS.pack $ f path gridByIndex, path)])
+        . ( map
+                ( ( \x ->
+                        mapWords
+                            x
+                            (BS.pack (map (gridByIndex HM.!) x) `T.submap` trie)
+                            (gridByIndex, gridByChar)
+                  )
+                    . fst
+                )
+                . filter (not . T.null . snd)
+          )
+        . map
+            ( ( \x ->
+                    (x, T.submap (BS.pack $ map (gridByIndex HM.!) x) trie)
+              )
+                . (\x -> path ++ [x])
+            )
+        $ filter (`notElem` path) (neighbours (last path))
 
 main :: IO ()
 main = do
     initializeTime
-
-    trie <- T.fromList . map (,()) . BS.lines . BS.map toUpper <$> BS.readFile "words.txt"
-    let grid =
+    args <- getArgs
+    !trie <- T.fromList . map (,()) . BS.lines . BS.map toUpper <$> BS.readFile (head args)
+    let !grid =
             concat
                 [ "SSUTD"
                 , "ATOPA"
@@ -116,8 +129,8 @@ main = do
                 , "TOKNT"
                 , "OSCHW"
                 ]
-    let gridByIndex = HM.fromList $ zip [0 ..] grid :: HM.HashMap Int Char
-    let gridByChar = HM.fromList $ map (\c -> (c, filter (\i -> HM.lookup i gridByIndex == Just c) [0 .. 24])) ['A' .. 'Z']
+    let !gridByIndex = HM.fromList $ zip [0 ..] grid :: HM.HashMap Int Char
+    let !gridByChar = HM.fromList $ map (\c -> (c, filter (\i -> HM.lookup i gridByIndex == Just c) [0 .. 24])) ['A' .. 'Z']
 
     t1 <- getTime
     let !rs =
@@ -125,6 +138,8 @@ main = do
                 . map (\(w, p) -> (w, p, reward w))
                 . T.toList
                 $ mapWords [] trie (gridByIndex, gridByChar)
+    t2 <- getTime
+    print $ length rs
     mapM_
         ( \(w, p, r) ->
             putStrLn
@@ -147,5 +162,4 @@ main = do
     printGrid (snd3 $ last rs) gridByIndex
     putStrLn ""
 
-    t2 <- getTime
-    putStrLn $ brightBlue $ formatToString ("took " % fixed 3 % "s") (t2 - t1)
+    putStrLn $ brightBlue $ formatToString ("search took " % fixed 3 % "s") (t2 - t1)
