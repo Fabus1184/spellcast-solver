@@ -162,4 +162,4 @@ main = do
     printGrid (snd3 $ last rs) gridByIndex
     putStrLn ""
 
-    putStrLn $ brightBlue $ formatToString ("search took " % fixed 3 % "s") (t2 - t1)
+    putStrLn $ brightBlue $ formatToString ("search took " % fixed 3 % "s, found " % int % " words") (t2 - t1) (length rs)
