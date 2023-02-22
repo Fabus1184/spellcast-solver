@@ -6,4 +6,5 @@ Solver for the discord game "SpellCast" using a PATRICIA-Trie to achieve insanel
 
 ## Example:
 
-![image](https://user-images.githubusercontent.com/43907020/220194340-2831ac44-9edf-4ddd-b89b-be5c3e8bb175.png)
+![image](https://user-images.githubusercontent.com/43907020/220662425-56a86c73-4ed0-45eb-ab07-7d302fcb6a66.png)
+
