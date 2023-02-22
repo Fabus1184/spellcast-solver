@@ -4,7 +4,8 @@
 
 module Main (main) where
 
-import Control.Monad (forM_)
+import Control.Concurrent.Async (mapConcurrently)
+import Control.Monad (forM_, replicateM)
 import Criterion.Measurement (getTime, initializeTime)
 import Data.Char (toUpper)
 import Data.Ix (inRange)
@@ -12,11 +13,12 @@ import Data.List.Extra (foldl', sortOn)
 import Data.Tuple.Extra (both, snd3, thd3)
 import Formatting (fixed, formatToString, int, right, shown, string, (%), (%.))
 import String.ANSI (bold, brightBlue, brightGreen, red, yellow)
+import System.Environment (getArgs)
+import System.Random (randomRIO)
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Trie as T
-import System.Environment (getArgs)
 
 -- | Print a 5x5 grid with the given path highlighted
 printGrid :: [Int] -> GridByIndex -> IO ()
@@ -90,14 +92,13 @@ f :: [Int] -> GridByIndex -> [Char]
 f path gridByIndex = map (gridByIndex HM.!) path
 
 -- | Map words to paths
-mapWords :: [Int] -> T.Trie () -> (GridByIndex, GridByChar) -> T.Trie [Int]
+mapWords :: [Int] -> T.Trie () -> (GridByIndex, GridByChar) -> IO (T.Trie [Int])
 mapWords [] trie (gridByIndex, gridByChar) = do
-    let !rs = map (\i -> mapWords [i] trie (gridByIndex, gridByChar)) [0 .. 24]
-     in foldl' T.unionL T.empty rs
-mapWords path trie (gridByIndex, gridByChar) =
-    foldl' T.unionL T.empty
-        . (:) (T.fromList $ filter ((`T.member` trie) . fst) [(BS.pack $ f path gridByIndex, path)])
-        . ( map
+    !rs <- mapConcurrently (\i -> mapWords [i] trie (gridByIndex, gridByChar)) [0 .. 24]
+    pure $! foldl' T.unionL T.empty rs
+mapWords path trie (gridByIndex, gridByChar) = do
+    !rs <-
+        ( mapM
                 ( ( \x ->
                         mapWords
                             x
@@ -107,37 +108,42 @@ mapWords path trie (gridByIndex, gridByChar) =
                     . fst
                 )
                 . filter (not . T.null . snd)
-          )
-        . map
-            ( ( \x ->
-                    (x, T.submap (BS.pack $ map (gridByIndex HM.!) x) trie)
-              )
-                . (\x -> path ++ [x])
             )
-        $ filter (`notElem` path) (neighbours (last path))
+            . map
+                ( ( \x ->
+                        (x, T.submap (BS.pack $ map (gridByIndex HM.!) x) trie)
+                  )
+                    . (\x -> path ++ [x])
+                )
+            $ filter (`notElem` path) (neighbours (last path))
+    pure
+        $ foldl' T.unionL T.empty
+            . (:) (T.fromList $ filter ((`T.member` trie) . fst) [(BS.pack $ f path gridByIndex, path)])
+        $ rs
 
 main :: IO ()
 main = do
     initializeTime
     args <- getArgs
     !trie <- T.fromList . map (,()) . BS.lines . BS.map toUpper <$> BS.readFile (head args)
-    let !grid =
-            concat
-                [ "SSUTD"
-                , "ATOPA"
-                , "HIAPI"
-                , "TOKNT"
-                , "OSCHW"
-                ]
+    -- let !grid =
+    --        concat
+    --            [ "SSUTD"
+    --            , "ATOPA"
+    --            , "HIAPI"
+    --            , "TOKNT"
+    --            , "OSCHW"
+    --            ]
+    !grid <- replicateM 25 $ randomRIO ('A', 'Z')
     let !gridByIndex = HM.fromList $ zip [0 ..] grid :: HM.HashMap Int Char
     let !gridByChar = HM.fromList $ map (\c -> (c, filter (\i -> HM.lookup i gridByIndex == Just c) [0 .. 24])) ['A' .. 'Z']
 
     t1 <- getTime
-    let !rs =
-            sortOn thd3
-                . map (\(w, p) -> (w, p, reward w))
-                . T.toList
-                $ mapWords [] trie (gridByIndex, gridByChar)
+    !rs <-
+        sortOn thd3
+            . map (\(w, p) -> (w, p, reward w))
+            . T.toList
+            <$> mapWords [] trie (gridByIndex, gridByChar)
     t2 <- getTime
     print $ length rs
     mapM_
